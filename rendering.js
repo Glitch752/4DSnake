@@ -2,10 +2,13 @@ import { clamp, lerpColor } from "./math.js";
 import { BOARD_SIZE, calculateLayout, getPlaneRect, getCellRect, getCellCenter } from "./layout.js";
 import { BoardState, game } from "./game.js";
 import { Vector4 } from "./vector4.js";
+import { Snake } from "./snake.js";
 export const canvas = /** @type {HTMLCanvasElement} */(
     document.getElementById('gameCanvas')
 );
 export const ctx = canvas.getContext('2d');
+
+let latestLayout = null;
 
 // an ""enum""
 export const Palette = {
@@ -20,18 +23,20 @@ export const Palette = {
 
     Tesseract: '#00e6ff',
     Player: '#61618d',
+    Danger: '#ff4c4c',
 };
 
-function emitEatParticles(layout, cell) {
-    const center = getCellCenter(layout, cell);
-    const radius = Math.max(4, layout.cellSize * 0.3);
-    game.particles.emitCircleBurst(center.x, center.y, radius, 28, 170, 0.55, Palette.food);
-    game.particles.emitCircleBurst(center.x, center.y, radius * 0.5, 14, 120, 0.35, Palette.foodCore);
+export function emitEatParticles(cell) {
+    if(!latestLayout) return;
+    const center = getCellCenter(latestLayout, cell);
+    const radius = Math.max(4, latestLayout.cellSize * 0.3);
+    game.particles.emitCircleBurst(center.x, center.y, radius, 28, 170, 0.55, Palette.Food);
 }
 
-function emitCrashParticles(layout, cell) {
-    const center = getCellCenter(layout, cell);
-    game.particles.emitCircleBurst(center.x, center.y, layout.cellSize * 0.4, 70, 220, 0.8, Palette.danger);
+export function emitCrashParticles(cell) {
+    if(!latestLayout) return;
+    const center = getCellCenter(latestLayout, cell);
+    game.particles.emitCircleBurst(center.x, center.y, latestLayout.cellSize * 0.4, 70, 220, 0.8, Palette.Danger);
 }
 
 function drawRect(ctx, x, y, width, height) {
@@ -42,19 +47,26 @@ function drawRect(ctx, x, y, width, height) {
 function drawBoard(layout) {
     for(let w = 0; w < BOARD_SIZE; w++) {
         for(let z = 0; z < BOARD_SIZE; z++) {
-            const plane = getPlaneRect(layout, w, z);
-
             for(let y = 0; y < BOARD_SIZE; y++) {
                 for(let x = 0; x < BOARD_SIZE; x++) {
-                    const rect = getCellRect(layout, new Vector4(x, y, z, w));
+                    const pos = new Vector4(x, y, z, w);
+                    const rect = getCellRect(layout, pos);
 
                     ctx.fillStyle = (x + y) % 2 === 0 ? Palette.CellBgEven : Palette.CellBgOdd;
+
                     drawRect(
                         ctx,
-                        rect.x - layout.cellGap, rect.y - layout.cellGap,
-                        rect.width + layout.cellGap * 2, rect.height + layout.cellGap * 2
+                        rect.x - layout.cellPadding, rect.y - layout.cellPadding,
+                        rect.width + layout.cellPadding * 2, rect.height + layout.cellPadding * 2
                     );
                     ctx.fill();
+
+                    // highlight next cells lightly
+                    if(pos.adjacentTo(game.snake.body[0]) && game.board[w][z][y][x] !== BoardState.Snake) {
+                        ctx.fillStyle = '#ffffff02';
+                        drawRect(ctx, rect.x, rect.y, rect.width, rect.height);
+                        ctx.fill();
+                    }
 
                     if(game.board[w][z][y][x] === BoardState.Food) {
                         ctx.fillStyle = Palette.Food;
@@ -72,9 +84,35 @@ function drawBoard(layout) {
     }
 }
 
+function drawRoundedRect(ctx, x, y, width, height, { tl = 0, tr = 0, bl = 0, br = 0 } = {}) {
+    ctx.beginPath();
+    ctx.moveTo(x + tl, y);
+    ctx.lineTo(x + width - tr, y);
+    if(tr > 0) ctx.quadraticCurveTo(x + width, y, x + width, y + tr);
+    else ctx.lineTo(x + width, y);
+
+    ctx.lineTo(x + width, y + height - br);
+    if(br > 0) ctx.quadraticCurveTo(x + width, y + height, x + width - br, y + height);
+    else ctx.lineTo(x + width, y + height);
+
+    ctx.lineTo(x + bl, y + height);
+    if(bl > 0) ctx.quadraticCurveTo(x, y + height, x, y + height - bl);
+    else ctx.lineTo(x, y + height);
+
+    ctx.lineTo(x, y + tl);
+    if(tl > 0) ctx.quadraticCurveTo(x, y, x + tl, y);
+    else ctx.lineTo(x, y);
+
+    ctx.closePath();
+}
+
+/**
+ * @param {Snake} snake 
+ * @param {*} layout 
+ */
 function drawSnake(snake, layout) {
     const segmentCount = snake.body.length;
-    for(let i = segmentCount - 1; i >= 0; i--) {
+    for (let i = segmentCount - 1; i >= 0; i--) {
         const segment = snake.body[i];
         const rect = getCellRect(layout, segment);
         const t = segmentCount <= 1 ? 0 : i / (segmentCount - 1);
@@ -82,27 +120,51 @@ function drawSnake(snake, layout) {
             ? Palette.SnakeHead
             : lerpColor(Palette.SnakeBodyStart, Palette.SnakeBodyEnd, t);
 
+        const prev = snake.body[i - 1], next = snake.body[i + 1];
+
+        // connect sides with previous and next adjacency
+        const topAdj = prev && prev.y < segment.y || next && next.y < segment.y;
+        const leftAdj = prev && prev.x < segment.x || next && next.x < segment.x;
+        const rightAdj = prev && prev.x > segment.x || next && next.x > segment.x;
+        const bottomAdj = prev && prev.y > segment.y || next && next.y > segment.y;
+
         ctx.fillStyle = color;
-        drawRect(ctx, rect.x, rect.y, rect.width, rect.height);
+        const radius = rect.width * 0.05;
+        // This creates a funky color mixing thing but we're going to call it a
+        // Feature Not a Bug
+        if(topAdj)    drawRect(ctx, rect.x, rect.y - layout.cellPadding - 1, rect.width, layout.cellPadding + 2);
+        if(bottomAdj) drawRect(ctx, rect.x, rect.y + rect.height - 1, rect.width, layout.cellPadding + 2);
+        if(leftAdj)   drawRect(ctx, rect.x - layout.cellPadding - 1, rect.y, layout.cellPadding + 2, rect.height);
+        if(rightAdj)  drawRect(ctx, rect.x + rect.width - 1, rect.y, layout.cellPadding + 2, rect.height);
+
+        drawRoundedRect(ctx, rect.x, rect.y, rect.width, rect.height, {
+            tl: topAdj    || leftAdj  ? 0 : radius,
+            tr: topAdj    || rightAdj ? 0 : radius,
+            bl: bottomAdj || leftAdj  ? 0 : radius,
+            br: bottomAdj || rightAdj ? 0 : radius
+        });
+
         ctx.fill();
 
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
         ctx.lineWidth = 1;
-        drawRect(ctx, rect.x, rect.y, rect.width, rect.height);
         ctx.stroke();
 
         ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-        drawRect(
-            ctx,
-            rect.x + rect.width * 0.11, rect.y + rect.height * 0.12,
-            rect.width * 0.58, rect.height * 0.26
+        ctx.beginPath();
+        ctx.roundRect(
+            rect.x + rect.width * 0.11,
+            rect.y + rect.height * 0.12,
+            rect.width * 0.58,
+            rect.height * 0.26,
+            radius * 0.4
         );
         ctx.fill();
     }
 
     const headRect = getCellRect(layout, snake.body[0]);
-    const eyeOffsetX = snake.direction.x !== 0 ? snake.direction.x * headRect.width * 0.2 : 0;
-    const eyeOffsetY = snake.direction.y !== 0 ? snake.direction.y * headRect.height * 0.2 : 0;
+    const eyeOffsetX = snake.nextDirection.x !== 0 ? snake.nextDirection.x * headRect.width * 0.2 : 0;
+    const eyeOffsetY = snake.nextDirection.y !== 0 ? snake.nextDirection.y * headRect.height * 0.2 : 0;
     const eyeYBase = headRect.y + headRect.height * 0.37 + eyeOffsetY;
     const eyeRadius = Math.max(1.5, headRect.width * 0.07);
     ctx.fillStyle = '#16311f';
@@ -120,9 +182,9 @@ export function render(now) {
     lastRenderTime = now;
     game.particles.update(deltaTime);
 
-    let layout = calculateLayout();
-    drawBoard(layout);
-    drawSnake(game.snake, layout);
+    latestLayout = calculateLayout();
+    drawBoard(latestLayout);
+    drawSnake(game.snake, latestLayout);
     game.particles.draw(ctx);
 
     game.dialogue.draw(ctx, game.tesseract);

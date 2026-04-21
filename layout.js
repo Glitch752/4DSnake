@@ -14,8 +14,8 @@ export function calculateLayout() {
     );
     const planeGap = boardPixelSize * 0.02;
     const planeSize = (boardPixelSize - planeGap * (BOARD_SIZE - 1)) / BOARD_SIZE;
-    const cellGap = planeSize * 0.04;
-    const cellSize = (planeSize - cellGap * (BOARD_SIZE + 1)) / BOARD_SIZE;
+    const cellPadding = planeSize * 0.02;
+    const cellSize = planeSize / BOARD_SIZE;
     const usedWidth = planeSize * BOARD_SIZE + planeGap * (BOARD_SIZE - 1);
     const usedHeight = usedWidth;
 
@@ -23,7 +23,7 @@ export function calculateLayout() {
         planeSize,
         planeGap,
         cellSize,
-        cellGap,
+        cellPadding,
         offsetX: canvasPadding,
         offsetY: (canvas.height - usedHeight + topPadding) * 0.5,
         boardPixelSize: usedWidth
@@ -39,10 +39,10 @@ export function getPlaneRect(layout, w, z) {
 export function getCellRect(layout, pos) {
     const plane = getPlaneRect(layout, pos.w, pos.z);
     return {
-        x: plane.x + layout.cellGap + pos.x * (layout.cellSize + layout.cellGap),
-        y: plane.y + layout.cellGap + pos.y * (layout.cellSize + layout.cellGap),
-        width: layout.cellSize,
-        height: layout.cellSize
+        x: plane.x + pos.x * layout.cellSize + layout.cellPadding,
+        y: plane.y + pos.y * layout.cellSize + layout.cellPadding,
+        width: layout.cellSize - layout.cellPadding * 2,
+        height: layout.cellSize - layout.cellPadding * 2
     };
 }
 

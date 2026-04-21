@@ -1,5 +1,6 @@
 import { BoardState, game } from "./game.js";
 import { BOARD_SIZE } from "./layout.js";
+import { emitCrashParticles, emitEatParticles } from "./rendering.js";
 import { Vector4 } from "./vector4.js";
 
 export class Snake {
@@ -48,22 +49,31 @@ export class Snake {
         if(!this.alive || game.gameOver || game.dialogue.active) return;
 
         this.direction = this.nextDirection;
-        const newHead = this.body[0].add(this.direction);
+        const newHead = this.body[0].plus(this.direction);
         // Wrap
         newHead.x = (newHead.x + BOARD_SIZE) % BOARD_SIZE;
         newHead.y = (newHead.y + BOARD_SIZE) % BOARD_SIZE;
         newHead.z = (newHead.z + BOARD_SIZE) % BOARD_SIZE;
         newHead.w = (newHead.w + BOARD_SIZE) % BOARD_SIZE;
 
+        // Check for food
+        const grow = game.board[newHead.w][newHead.z][newHead.y][newHead.x] === BoardState.Food;
+
         // Check for self-collision
-        if(game.board[newHead.w][newHead.z][newHead.y][newHead.x] === BoardState.Snake) {
+        if(
+            game.board[newHead.w][newHead.z][newHead.y][newHead.x] === BoardState.Snake &&
+            // Allow moving into tail if not growing, since it will move away
+            !(newHead.equals(this.body[this.body.length - 1]) && !grow)
+        ) {
             this.alive = false;
             game.gameOver = true;
+            emitCrashParticles(newHead);
             return;
         }
 
-        // Check for food
-        const grow = game.board[newHead.w][newHead.z][newHead.y][newHead.x] === BoardState.Food;
+        if(grow) {
+            emitEatParticles(newHead);
+        }
 
         this.body.unshift(newHead); // Add new head
         if(!grow) this.body.pop(); // Remove tail
