@@ -60,21 +60,23 @@ export const tutorialSteps = [
 ];
 
 export class Tutorial {
+    /** @type {typeof tutorialSteps} */
+    stepQueue = tutorialSteps;
+
     constructor() {
-        this.currentStep = 0;
         this.active = true;
     }
 
     next() {
-        if (this.currentStep < tutorialSteps.length - 1) {
-            this.currentStep++;
+        if(this.stepQueue.length > 1) {
+            this.stepQueue.shift();
         } else {
             this.active = false;
         }
     }
 
     drawBoxShape(ctx, boxX, boxY, pointerX, pointerY, boxWidth, boxHeight) {
-        const step = tutorialSteps[this.currentStep];
+        const step = this.stepQueue[0];
         const isTesseract = step.from === 'game';
         
         ctx.beginPath();
@@ -107,7 +109,7 @@ export class Tutorial {
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         
         // try to do tutorial things
-        const step = tutorialSteps[this.currentStep];
+        const step = this.stepQueue[0];
         const isTesseract = step.from === 'game';
         
         const boxWidth = 500;
