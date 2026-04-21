@@ -1,4 +1,4 @@
-import { ctx } from "./game.js";
+import { ctx } from "./rendering.js";
 
 /** the tutorial character */
 export class Tesseract {
@@ -22,6 +22,7 @@ export class Tesseract {
         ctx.translate(this.x, this.y);
 
         const s = this.size / 2;
+        /** @type {[number, number, number, number][]} */
         const vertices4D = [];
         for (let i = 0; i < 16; i++) {
             vertices4D.push([
@@ -33,8 +34,10 @@ export class Tesseract {
         }
 
         const t = Date.now() * 0.001;
+        /** @returns {[number, number, number, number]} */
         function rotate4D([x, y, z, w], a, b) {
             // rotate in the (a,b) plane by angle t
+            /** @type {[number, number, number, number]} */
             const v = [x, y, z, w];
             const ca = Math.cos(t), sa = Math.sin(t);
             const va = v[a], vb = v[b];

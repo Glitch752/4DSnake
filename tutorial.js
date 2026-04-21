@@ -143,10 +143,12 @@ export class Tutorial {
         ctx.globalAlpha = 1;
         ctx.fillStyle = '#fff';
         ctx.font = '16px sans-serif';
+        ctx.textBaseline = 'top';
+
         // Text wrap
         const text = step.text;
         const words = text.split(' ');
-        let line = '', y = boxY + 28;
+        let line = '', y = boxY + 16;
         for(let n = 0; n < words.length; n++) {
             const testLine = line + words[n] + ' ';
             const measure = ctx.measureText(testLine);
@@ -158,6 +160,7 @@ export class Tutorial {
                 line = testLine;
             }
         }
+
         ctx.fillText(line, boxX + 12, y);
         ctx.restore();
     }

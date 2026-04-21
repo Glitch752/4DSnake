@@ -1,13 +1,13 @@
-import { canvas } from "./game.js";
+import { canvas } from "./rendering.js";
 
-const CANVAS_PADDING = 28;
 export const BOARD_SIZE = 4;
 
 // So we can dynamically change layout maybe?
 
 export function calculateLayout() {
-    const boardPixelSize = Math.min(canvas.width - CANVAS_PADDING * 2, canvas.height - CANVAS_PADDING * 2);
-    const planeGap = boardPixelSize * 0.03;
+    const canvasPadding = 20;
+    const boardPixelSize = Math.min(canvas.width - canvasPadding * 2, canvas.height - canvasPadding * 2);
+    const planeGap = boardPixelSize * 0.02;
     const planeSize = (boardPixelSize - planeGap * (BOARD_SIZE - 1)) / BOARD_SIZE;
     const cellGap = planeSize * 0.04;
     const cellSize = (planeSize - cellGap * (BOARD_SIZE + 1)) / BOARD_SIZE;
@@ -19,7 +19,7 @@ export function calculateLayout() {
         planeGap,
         cellSize,
         cellGap,
-        offsetX: (canvas.width - usedWidth) * 0.5,
+        offsetX: canvasPadding,
         offsetY: (canvas.height - usedHeight) * 0.5,
         boardPixelSize: usedWidth
     };
