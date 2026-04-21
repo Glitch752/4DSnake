@@ -1,4 +1,4 @@
-// Tutorial dialogue system
+import { Palette } from "./rendering.js";
 
 export const tutorialSteps = [
     {
@@ -56,10 +56,14 @@ export const tutorialSteps = [
     {
         from: "game",
         text: "You'll have to figure that one out yourself. Good luck!"
+    },
+    {
+        from: "game",
+        text: "Oh, and on a more serious note... you may want to play at least a few times and watch out :)"
     }
 ];
 
-export class Tutorial {
+export class Dialogue {
     /** @type {typeof tutorialSteps} */
     stepQueue = tutorialSteps;
 
@@ -103,12 +107,11 @@ export class Tutorial {
     draw(ctx, tesseract) {
         if(!this.active) return;
 
-        // If tutorial is active, fade background
+        // If dialogue is active, fade background
         ctx.save();
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         
-        // try to do tutorial things
         const step = this.stepQueue[0];
         const isTesseract = step.from === 'game';
         
@@ -123,20 +126,20 @@ export class Tutorial {
             pointerY = boxY + boxHeight / 2;
         } else {
             // Box near player (bottom right corner)
-            boxX = 100;
-            boxY = ctx.canvas.height - boxHeight - 100;
+            boxX = 60;
+            boxY = ctx.canvas.height - boxHeight - 60;
             pointerX = boxX - 16;
             pointerY = boxY + boxHeight / 2;
         }
         
-        ctx.strokeStyle = isTesseract ? '#00e6ff' : '#61618d';
+        ctx.strokeStyle = isTesseract ? Palette.Tesseract : Palette.Player;
         ctx.lineWidth = 4;
         ctx.lineJoin = "round";
         ctx.lineCap = "round";
         this.drawBoxShape(ctx, boxX, boxY, pointerX, pointerY, boxWidth, boxHeight);
         ctx.stroke();
 
-        ctx.fillStyle = isTesseract ? '#222' : '#2a2a44';
+        ctx.fillStyle = Palette.BoardBg;
         this.drawBoxShape(ctx, boxX, boxY, pointerX, pointerY, boxWidth, boxHeight);
         ctx.fill();
 

@@ -1,7 +1,5 @@
-// @ts-check
-
 import { Vector4 } from "./vector4.js";
-import { Tutorial } from "./tutorial.js";
+import { Dialogue } from "./dialogue.js";
 import { Tesseract } from "./tesseract.js";
 import { Particles } from "./particles.js";
 import { BOARD_SIZE } from "./layout.js";
@@ -24,7 +22,7 @@ export class Game {
     snake = new Snake();
 
     tesseract = new Tesseract();
-    tutorial = new Tutorial();
+    dialogue = new Dialogue();
     particles = new Particles();
 
     initBoard() {
@@ -76,8 +74,8 @@ setInterval(() => {
 
 // Controls
 document.addEventListener('keydown', (e) => {
-    if(game.tutorial.active) {
-        game.tutorial.next();
+    if(game.dialogue.active) {
+        game.dialogue.next();
         return;
     }
 

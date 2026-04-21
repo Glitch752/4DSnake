@@ -1,7 +1,5 @@
-// @ts-check
-
 import { clamp, lerpColor } from "./math.js";
-import { BOARD_SIZE, calculateLayout, getPlaneRect, getCellRect } from "./layout.js";
+import { BOARD_SIZE, calculateLayout, getPlaneRect, getCellRect, getCellCenter } from "./layout.js";
 import { BoardState, game } from "./game.js";
 import { Vector4 } from "./vector4.js";
 export const canvas = /** @type {HTMLCanvasElement} */(
@@ -10,22 +8,33 @@ export const canvas = /** @type {HTMLCanvasElement} */(
 export const ctx = canvas.getContext('2d');
 
 // an ""enum""
-const Palette = {
-    BackgroundTop: '#0b1020',
-    BackgroundBottom: '#11172b',
-    BoardCard: '#1a2438',
-    BoardStroke: 'rgba(255, 255, 255, 0.08)',
-    EmptyCellA: '#141f33',
-    EmptyCellB: '#16253a',
-    GridLine: 'rgba(255, 255, 255, 0.05)',
+export const Palette = {
+    BoardBg: '#171b21',
+    CellBgEven: '#141f33',
+    CellBgOdd: '#16253a',
+
     SnakeHead: '#7ff5a1',
     SnakeBodyStart: '#5ae083',
     SnakeBodyEnd: '#28a45a',
-    Food: '#ff6b6b'
+    Food: '#ff6b6b',
+
+    Tesseract: '#00e6ff',
+    Player: '#61618d',
 };
 
+function emitEatParticles(layout, cell) {
+    const center = getCellCenter(layout, cell);
+    const radius = Math.max(4, layout.cellSize * 0.3);
+    game.particles.emitCircleBurst(center.x, center.y, radius, 28, 170, 0.55, Palette.food);
+    game.particles.emitCircleBurst(center.x, center.y, radius * 0.5, 14, 120, 0.35, Palette.foodCore);
+}
 
-function drawRect(ctx, x, y, width, height, radius) {
+function emitCrashParticles(layout, cell) {
+    const center = getCellCenter(layout, cell);
+    game.particles.emitCircleBurst(center.x, center.y, layout.cellSize * 0.4, 70, 220, 0.8, Palette.danger);
+}
+
+function drawRect(ctx, x, y, width, height) {
     // For now, just normal rect?
     ctx.fillRect(x, y, width, height);
 }
@@ -35,32 +44,26 @@ function drawBoard(layout) {
         for(let z = 0; z < BOARD_SIZE; z++) {
             const plane = getPlaneRect(layout, w, z);
 
-            ctx.fillStyle = Palette.BoardCard;
-            drawRect(ctx, plane.x, plane.y, plane.width, plane.height, layout.planeSize * 0.06);
-            ctx.fill();
-
-            ctx.strokeStyle = Palette.BoardStroke;
-            ctx.lineWidth = 1.2;
-            drawRect(ctx, plane.x, plane.y, plane.width, plane.height, layout.planeSize * 0.06);
-            ctx.stroke();
-
             for(let y = 0; y < BOARD_SIZE; y++) {
                 for(let x = 0; x < BOARD_SIZE; x++) {
                     const rect = getCellRect(layout, new Vector4(x, y, z, w));
 
-                    ctx.fillStyle = (x + y) % 2 === 0 ? Palette.EmptyCellA : Palette.EmptyCellB;
+                    ctx.fillStyle = (x + y) % 2 === 0 ? Palette.CellBgEven : Palette.CellBgOdd;
                     drawRect(
                         ctx,
                         rect.x - layout.cellGap, rect.y - layout.cellGap,
-                        rect.width + layout.cellGap * 2, rect.height + layout.cellGap * 2,
-                        rect.width * 0.18
+                        rect.width + layout.cellGap * 2, rect.height + layout.cellGap * 2
                     );
                     ctx.fill();
 
                     if(game.board[w][z][y][x] === BoardState.Food) {
                         ctx.fillStyle = Palette.Food;
                         const size = rect.width * 0.6;
-                        drawRect(ctx, rect.x + rect.width * 0.5 - size * 0.5, rect.y + rect.height * 0.5 - size * 0.5, size, size, size * 0.2);
+                        drawRect(
+                            ctx,
+                            rect.x + rect.width * 0.5 - size * 0.5, rect.y + rect.height * 0.5 - size * 0.5,
+                            size, size
+                        );
                         ctx.fill();
                     }
                 }
@@ -80,22 +83,19 @@ function drawSnake(snake, layout) {
             : lerpColor(Palette.SnakeBodyStart, Palette.SnakeBodyEnd, t);
 
         ctx.fillStyle = color;
-        drawRect(ctx, rect.x, rect.y, rect.width, rect.height, rect.width * 0.22);
+        drawRect(ctx, rect.x, rect.y, rect.width, rect.height);
         ctx.fill();
 
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
         ctx.lineWidth = 1;
-        drawRect(ctx, rect.x, rect.y, rect.width, rect.height, rect.width * 0.22);
+        drawRect(ctx, rect.x, rect.y, rect.width, rect.height);
         ctx.stroke();
 
         ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
         drawRect(
             ctx,
-            rect.x + rect.width * 0.11,
-            rect.y + rect.height * 0.12,
-            rect.width * 0.58,
-            rect.height * 0.26,
-            rect.width * 0.12
+            rect.x + rect.width * 0.11, rect.y + rect.height * 0.12,
+            rect.width * 0.58, rect.height * 0.26
         );
         ctx.fill();
     }
@@ -125,7 +125,7 @@ export function render(now) {
     drawSnake(game.snake, layout);
     game.particles.draw(ctx);
 
-    game.tutorial.draw(ctx, game.tesseract);
+    game.dialogue.draw(ctx, game.tesseract);
     game.tesseract.draw();
 
     requestAnimationFrame(render);

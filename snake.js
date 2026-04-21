@@ -45,7 +45,7 @@ export class Snake {
     }
 
     move() {
-        if(!this.alive || game.gameOver || game.tutorial.active) return;
+        if(!this.alive || game.gameOver || game.dialogue.active) return;
 
         this.direction = this.nextDirection;
         const newHead = this.body[0].add(this.direction);

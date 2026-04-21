@@ -6,7 +6,12 @@ export const BOARD_SIZE = 4;
 
 export function calculateLayout() {
     const canvasPadding = 20;
-    const boardPixelSize = Math.min(canvas.width - canvasPadding * 2, canvas.height - canvasPadding * 2);
+    const topPadding = 50;
+
+    const boardPixelSize = Math.min(
+        canvas.width - canvasPadding * 2,
+        canvas.height - canvasPadding * 2 - topPadding
+    );
     const planeGap = boardPixelSize * 0.02;
     const planeSize = (boardPixelSize - planeGap * (BOARD_SIZE - 1)) / BOARD_SIZE;
     const cellGap = planeSize * 0.04;
@@ -20,7 +25,7 @@ export function calculateLayout() {
         cellSize,
         cellGap,
         offsetX: canvasPadding,
-        offsetY: (canvas.height - usedHeight) * 0.5,
+        offsetY: (canvas.height - usedHeight + topPadding) * 0.5,
         boardPixelSize: usedWidth
     };
 }
@@ -38,5 +43,13 @@ export function getCellRect(layout, pos) {
         y: plane.y + layout.cellGap + pos.y * (layout.cellSize + layout.cellGap),
         width: layout.cellSize,
         height: layout.cellSize
+    };
+}
+
+export function getCellCenter(layout, pos) {
+    const rect = getCellRect(layout, pos);
+    return {
+        x: rect.x + rect.width * 0.5,
+        y: rect.y + rect.height * 0.5
     };
 }
