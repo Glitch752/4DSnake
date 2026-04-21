@@ -1,3 +1,10 @@
+import { Vector4 } from "./vector4.js";
+import { Tutorial } from "./tutorial.js";
+import { Tesseract } from "./tesseract.js";
+
+export const canvas = document.getElementById('gameCanvas');
+export const ctx = canvas.getContext('2d');
+
 const BOARD_SIZE = 4;
 const BOARD_PADDING = 0.1;
 const CANVAS_PADDING = 20;
@@ -32,23 +39,6 @@ function initBoard() {
 }
 
 initBoard();
-
-class Vector4 {
-    constructor(x, y, z, w) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
-        this.w = w;
-    }
-
-    add(other) {
-        return new Vector4(this.x + other.x, this.y + other.y, this.z + other.z, this.w + other.w);
-    }
-    
-    equals(other) {
-        return this.x === other.x && this.y === other.y && this.z === other.z && this.w === other.w;
-    }
-}
 
 class Snake {
     constructor() {
@@ -103,9 +93,6 @@ class Snake {
     }
 }
 
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -116,6 +103,9 @@ resizeCanvas();
 
 let snake = new Snake();
 snake.updateBoard();
+
+const tesseract = new Tesseract();
+const tutorial = new Tutorial();
 
 let speed = 500; // ms per move
 setInterval(() => {
@@ -195,6 +185,9 @@ function render() {
         }
     }
 
+    tutorial.draw(ctx, tesseract);
+    tesseract.draw(ctx);
+
     requestAnimationFrame(render);
 }
 
@@ -202,6 +195,11 @@ render();
 
 // Controls
 document.addEventListener('keydown', (e) => {
+    if (tutorial.active) {
+        tutorial.next();
+        return;
+    }
+
     // We have more directions to move in than normal snake, but thankfully
     // both WASD and IJKL are pretty standard and make it intuitive enough
     switch(e.key) {

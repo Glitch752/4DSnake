@@ -3,7 +3,7 @@
 export const tutorialSteps = [
     {
         from: "game",
-        text: "Hello! I'm Tesseract (I guess?), and I'll be your guide to 4D Snake!",
+        text: "Hello! I'm Tesseract (unique name, I know), and I'll be your guide to 4D Snake!",
     },
     {
         from: "player",
@@ -73,24 +73,90 @@ export class Tutorial {
         }
     }
 
+    drawBoxShape(ctx, boxX, boxY, pointerX, pointerY, boxWidth, boxHeight) {
+        const step = tutorialSteps[this.currentStep];
+        const isTesseract = step.from === 'game';
+        
+        ctx.beginPath();
+        ctx.moveTo(boxX, boxY);
+        ctx.lineTo(boxX + boxWidth, boxY);
+        ctx.lineTo(boxX + boxWidth, boxY + boxHeight);
+        ctx.lineTo(boxX, boxY + boxHeight);
+        ctx.lineTo(boxX, boxY);
+        
+        // Pointer triangle
+        if(isTesseract) {
+            ctx.moveTo(boxX + boxWidth, boxY + boxHeight / 2 + 10);
+            ctx.lineTo(boxX + boxWidth + 16, pointerY);
+            ctx.lineTo(boxX + boxWidth, boxY + boxHeight / 2 - 10);
+        } else {
+            ctx.moveTo(boxX, boxY + boxHeight / 2 + 10);
+            ctx.lineTo(pointerX, pointerY);
+            ctx.lineTo(boxX, boxY + boxHeight / 2 - 10);
+        }
+        
+        ctx.closePath();
+    }
+
     draw(ctx, tesseract) {
-        if (!this.active) return;
-        // try to do tutorial things
+        if(!this.active) return;
+
+        // If tutorial is active, fade background
         ctx.save();
-        ctx.globalAlpha = 0.95;
-        ctx.fillStyle = '#222';
-        ctx.strokeStyle = '#00e6ff';
-        ctx.lineWidth = 2;
-        const boxX = tesseract.x + tesseract.size + 10;
-        const boxY = tesseract.y;
-        const boxW = 320;
-        const boxH = 60;
-        ctx.fillRect(boxX, boxY, boxW, boxH);
-        ctx.strokeRect(boxX, boxY, boxW, boxH);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        
+        // try to do tutorial things
+        const step = tutorialSteps[this.currentStep];
+        const isTesseract = step.from === 'game';
+        
+        const boxWidth = 500;
+        const boxHeight = 90;
+        let boxX, boxY, pointerX, pointerY;
+        if(isTesseract) {
+            // Box near tesseract
+            boxX = tesseract.x - boxWidth - 50;
+            boxY = tesseract.y;
+            pointerX = tesseract.x - 25;
+            pointerY = boxY + boxHeight / 2;
+        } else {
+            // Box near player (bottom right corner)
+            boxX = 100;
+            boxY = ctx.canvas.height - boxHeight - 100;
+            pointerX = boxX - 16;
+            pointerY = boxY + boxHeight / 2;
+        }
+        
+        ctx.strokeStyle = isTesseract ? '#00e6ff' : '#61618d';
+        ctx.lineWidth = 4;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        this.drawBoxShape(ctx, boxX, boxY, pointerX, pointerY, boxWidth, boxHeight);
+        ctx.stroke();
+
+        ctx.fillStyle = isTesseract ? '#222' : '#2a2a44';
+        this.drawBoxShape(ctx, boxX, boxY, pointerX, pointerY, boxWidth, boxHeight);
+        ctx.fill();
+
         ctx.globalAlpha = 1;
         ctx.fillStyle = '#fff';
         ctx.font = '16px sans-serif';
-        ctx.fillText(tutorialSteps[this.currentStep].text, boxX + 12, boxY + 32);
+        // Text wrap
+        const text = step.text;
+        const words = text.split(' ');
+        let line = '', y = boxY + 28;
+        for(let n = 0; n < words.length; n++) {
+            const testLine = line + words[n] + ' ';
+            const measure = ctx.measureText(testLine);
+            if(measure.width > boxWidth - 24 && n > 0) {
+                ctx.fillText(line, boxX + 12, y);
+                line = words[n] + ' ';
+                y += 22;
+            } else {
+                line = testLine;
+            }
+        }
+        ctx.fillText(line, boxX + 12, y);
         ctx.restore();
     }
 }
