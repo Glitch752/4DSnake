@@ -1,8 +1,8 @@
-import { clamp, lerpColor } from "./math.js";
+import { clamp, lerp, lerpColor } from "./math.js";
 import { BOARD_SIZE, calculateLayout, getPlaneRect, getCellRect, getCellCenter } from "./layout.js";
 import { BoardSnapshot, BoardState, game, GameStage } from "./game.js";
 import { Vector4 } from "./vector4.js";
-import { Snake } from "./snake.js";
+
 export const canvas = /** @type {HTMLCanvasElement} */(
     document.getElementById('gameCanvas')
 );
@@ -45,10 +45,11 @@ function drawRect(ctx, x, y, width, height) {
 }
 
 /**
+ * @param {CanvasRenderingContext2D} ctx
  * @param {*} layout 
  * @param {BoardSnapshot} board 
  */
-function drawBoard(layout, board) {
+function drawBoard(ctx, layout, board) {
     for(let w = 0; w < BOARD_SIZE; w++) {
         for(let z = 0; z < BOARD_SIZE; z++) {
             for(let y = 0; y < BOARD_SIZE; y++) {
@@ -89,11 +90,29 @@ function drawBoard(layout, board) {
 }
 
 /**
+ * @param {CanvasRenderingContext2D} ctx
  * @param {*} layout
  * @param {BoardSnapshot} board
  */
-function drawBoardOverlays(layout, board) {
-    // TODO: death
+function drawBoardOverlays(ctx, layout, board) {
+    if(board.gameOver) {
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, layout.boardPixelSize, layout.boardPixelSize);
+        ctx.globalAlpha = 1;
+
+        ctx.font = "32px monospace";
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(
+            "press space to restart",
+            layout.boardPixelSize / 2,
+            layout.boardPixelSize / 2
+        );
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+    }
 }
 
 function drawRoundedRect(ctx, x, y, width, height, { tl = 0, tr = 0, bl = 0, br = 0 } = {}) {
@@ -119,10 +138,11 @@ function drawRoundedRect(ctx, x, y, width, height, { tl = 0, tr = 0, bl = 0, br 
 }
 
 /**
+ * @param {CanvasRenderingContext2D} ctx
  * @param {*} layout 
  * @param {BoardSnapshot} board
  */
-function drawSnake(layout, board) {
+function drawSnake(ctx, layout, board) {
     const snake = board.snake;
 
     const segmentCount = snake.body.length;
@@ -193,7 +213,7 @@ export function render(now) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     ctx.textBaseline = 'top';
-    ctx.font = '40px monospace';
+    ctx.font = 'bold 40px monospace';
     ctx.fillStyle = '#fff';
     if(game.gameStage != GameStage.FiveD) {
         ctx.fillText(`4D Snake`, 25, 15);
@@ -206,12 +226,43 @@ export function render(now) {
     game.particles.update(deltaTime);
 
     latestLayout = calculateLayout();
-    const snapshot = game.board;
-    drawBoard(latestLayout, snapshot);
-    drawSnake(latestLayout,snapshot);
-    drawBoardOverlays(latestLayout, snapshot);
-    game.particles.draw(ctx);
+    
+    for(let i = 0; i < game.previousBoards.length + 1; i++) {
+        const snapshot = i === game.previousBoards.length ? game.board : game.previousBoards[i];
+        
+        let resized = false;
+        if(snapshot.canvas.width != latestLayout.boardPixelSize || snapshot.canvas.height != latestLayout.boardPixelSize) {
+            snapshot.canvas.width = latestLayout.boardPixelSize;
+            snapshot.canvas.height = latestLayout.boardPixelSize;
+            resized = true;
+        }
 
+        // Update perspective
+        const perspective = Math.min(1, game.historyScrollPosition);
+
+        const indexFromCurrent = game.previousBoards.length - i;
+
+        snapshot.canvas.style.transform = `\
+perspective(${5000 - Math.sqrt(perspective) * 4000}px) \
+scale(${lerp(1.0, 0.6, perspective)}) \
+rotateX(${perspective * -40}deg) \
+rotateY(${perspective * 20}deg) \
+translateZ(${indexFromCurrent * -500 + Math.max(0, game.historyScrollPosition - 1) * 500}px)`;
+
+        snapshot.canvas.style.opacity = (1 - (indexFromCurrent - game.historyScrollPosition) / game.previousBoards.length / Math.max(perspective, 0.0001)).toFixed(3);
+        snapshot.canvas.style.zIndex = (100 - indexFromCurrent).toString();
+
+        if(i === game.previousBoards.length || resized) {
+            snapshot.ctx.clearRect(0, 0, snapshot.canvas.width, snapshot.canvas.height);
+            drawBoard(snapshot.ctx, latestLayout, snapshot);
+            drawSnake(snapshot.ctx, latestLayout, snapshot);
+            drawBoardOverlays(snapshot.ctx, latestLayout, snapshot);
+        }
+        if(i === game.previousBoards.length) {
+            game.particles.draw(snapshot.ctx); 
+        }
+    }
+       
     game.dialogue.draw(ctx, game.tesseract);
     game.tesseract.draw();
 

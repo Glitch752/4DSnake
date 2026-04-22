@@ -31,8 +31,8 @@ export function calculateLayout() {
 }
 
 export function getPlaneRect(layout, w, z) {
-    const x = layout.offsetX + w * (layout.planeSize + layout.planeGap);
-    const y = layout.offsetY + z * (layout.planeSize + layout.planeGap);
+    const x = w * (layout.planeSize + layout.planeGap);
+    const y = z * (layout.planeSize + layout.planeGap);
     return { x, y, width: layout.planeSize, height: layout.planeSize };
 }
 

@@ -29,6 +29,27 @@ export class BoardSnapshot {
     speed = 1;
     snake;
 
+    /** @type {HTMLCanvasElement} */
+    canvas;
+    /** @type {CanvasRenderingContext2D} */
+    ctx;
+    poolIndex = 0;
+
+    constructor() {
+        // fixed-size canvas pool instead of creating new canvases
+        const poolIndex = BoardSnapshot.openPoolIndices.values().next().value;
+        if(poolIndex === undefined) {
+            throw new Error("No more canvases available in the pool!");
+        }
+        BoardSnapshot.openPoolIndices.delete(poolIndex);
+        this.poolIndex = poolIndex;
+
+        const item = BoardSnapshot.canvasPool[poolIndex];
+        this.canvas = item[0];
+        this.ctx = item[1];
+        this.canvas.style.display = "block"; // In case it was hidden by remove()
+    }
+
     initBoard() {
         for(let w = 0; w < BOARD_SIZE; w++) {
             this.board[w] = [];
@@ -57,7 +78,11 @@ export class BoardSnapshot {
     /** Advance this board and get the new board. */
     advance() {
         const ss = this.clone();
-        ss.snake.move();
+        const grew = ss.snake.move(ss);
+        if(grew) {
+            ss.placeFood();
+            ss.speed *= 1.02;
+        }
         if(!ss.snake.alive) {
             ss.gameOver = true;
         }
@@ -65,18 +90,16 @@ export class BoardSnapshot {
         ss.snake.updateBoard(ss.board);
         return ss;
     }
-}
 
-export class Game {
-    /** @type {GameStage[keyof GameStage]} */
-    gameStage = GameStage.Start;
+    remove() {
+        // Will be reused anyway
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.canvas.style.display = "none";
+        this.canvas = null;
+        this.ctx = null;
 
-    tesseract = new Tesseract();
-    dialogue = new Dialogue();
-    particles = new Particles();
-
-    /** The current (latest) board state */
-    board = new BoardSnapshot();
+        BoardSnapshot.openPoolIndices.add(this.poolIndex);
+    }
 
     placeFood() {
         let emptyCells = [];
@@ -99,17 +122,89 @@ export class Game {
     }
 }
 
+const HISTORY_LENGTH = 5;
+
+/** @type {[HTMLCanvasElement, CanvasRenderingContext2D][]} */
+BoardSnapshot.canvasPool = new Array(HISTORY_LENGTH + 10).fill(null).map(() => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.style.position = 'absolute';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.zIndex = '10';
+    canvas.style.display = 'none';
+    document.getElementById("boards").appendChild(canvas);
+    return [canvas, ctx];
+});
+BoardSnapshot.openPoolIndices = new Set(Array.from(Array(BoardSnapshot.canvasPool.length).keys()));
+
+export class Game {
+    /** @type {GameStage[keyof GameStage]} */
+    gameStage = GameStage.Start;
+
+    tesseract = new Tesseract();
+    dialogue = new Dialogue();
+    particles = new Particles();
+
+    /** 
+     * The current (latest) board state
+     * @type {BoardSnapshot}
+    */
+    board;
+
+    totalAttempts = 0;
+
+    /** @type {BoardSnapshot[]} */
+    previousBoards = [];
+
+    historyScrollPosition = 0;
+
+    advance() {
+        const newBoard = this.board.advance();
+        this.previousBoards.push(this.board);
+        if(this.previousBoards.length > HISTORY_LENGTH) {
+            this.previousBoards[0].remove();
+            this.previousBoards.shift();
+        }
+
+        this.board = newBoard;
+    }
+
+    run() {
+        setTimeout(() => {
+            this.advance();
+            this.run();
+        }, 500 / this.board.speed);
+    }
+
+    restart() {
+        if(this.board) this.board.remove();
+        this.board = new BoardSnapshot();
+
+        this.previousBoards.forEach(b => b.remove());
+        this.previousBoards = [];
+
+        this.board.initBoard();
+        this.board.snake = new Snake();
+        this.board.snake.updateBoard();
+        this.board.placeFood();
+
+        this.totalAttempts += 1;
+    }
+
+    scrollHistory(delta) {
+        // if(this.dialogue.active) return;
+        // if(this.gameStage !== GameStage.FiveD) return;
+        
+        this.historyScrollPosition += delta * 0.002;
+        this.historyScrollPosition = Math.max(0, this.historyScrollPosition);
+    }
+}
+
 export const game = new Game();
 
-game.board.initBoard();
-game.board.snake = new Snake();
-game.board.snake.updateBoard();
-game.placeFood();
-
-setInterval(() => {
-    game.board.advance();
-}, 500);
-
+game.restart();
+game.run();
 
 // Controls
 document.addEventListener('keydown', (e) => {
@@ -129,7 +224,16 @@ document.addEventListener('keydown', (e) => {
         case 'k': game.board.snake.setDirection(new Vector4(0, 0, 1, 0)); break; // Backward (Z+)
         case 'j': game.board.snake.setDirection(new Vector4(0, 0, 0, -1)); break; // W-
         case 'l': game.board.snake.setDirection(new Vector4(0, 0, 0, 1)); break; // W+
+        case ' ': {
+            if(game.board.gameOver) {
+                game.restart();
+            }
+        }
     }
+});
+
+document.addEventListener('wheel', (e) => {
+    game.scrollHistory(e.deltaY);
 });
 
 render(performance.now());

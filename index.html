@@ -8,14 +8,25 @@
         body {
             margin: 0;
             overflow: hidden;
+            background-color: #101010;
         }
         #gameCanvas {
             display: block;
-            background-color: #101010;
+            position: absolute;
+            z-index: 1000;
+        }
+
+        #boards {
+            position: relative;
+
+            /* Reflected in layout.js; i'm too lazy to change from code */
+            top: 70px;
+            left: 20px;
         }
     </style>
 </head>
 <body>
+    <div id="boards"></div>
     <canvas id="gameCanvas"></canvas>
 
     <script type="module" src="game.js"></script>

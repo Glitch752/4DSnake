@@ -1,5 +1,5 @@
 import { fastDeathSteps, firstDeathSteps } from "./dialogue.js";
-import { BoardState, game, GameStage } from "./game.js";
+import { BoardSnapshot, BoardState, game, GameStage } from "./game.js";
 import { BOARD_SIZE } from "./layout.js";
 import { emitCrashParticles, emitEatParticles } from "./rendering.js";
 import { Vector4 } from "./vector4.js";
@@ -52,10 +52,11 @@ export class Snake {
         clone.nextDirection = this.nextDirection.clone();
         clone.body = this.body.map(segment => segment.clone());
         clone.alive = this.alive;
+        return clone;
     }
 
-    move() {
-        if(!this.alive || game.dialogue.active) return;
+    move(snapshot) {
+        if(!this.alive || game.dialogue.active) return false;
 
         this.direction = this.nextDirection;
         const newHead = this.body[0].plus(this.direction);
@@ -66,30 +67,31 @@ export class Snake {
         newHead.w = (newHead.w + BOARD_SIZE) % BOARD_SIZE;
 
         // Check for food
-        const grow = game.board[newHead.w][newHead.z][newHead.y][newHead.x] === BoardState.Food;
-
+        const grow = snapshot.board[newHead.w][newHead.z][newHead.y][newHead.x] === BoardState.Food;
+ 
         // Check for self-collision
         if(
-            game.board[newHead.w][newHead.z][newHead.y][newHead.x] === BoardState.Snake &&
+            snapshot.board[newHead.w][newHead.z][newHead.y][newHead.x] === BoardState.Snake &&
             // Allow moving into tail if not growing, since it will move away
             !(newHead.equals(this.body[this.body.length - 1]) && !grow)
         ) {
             this.alive = false;
             emitCrashParticles(newHead);
 
+            console.log("Snake died - game stage: ", game.gameStage, "speed: ", snapshot.speed);
             if(game.gameStage === GameStage.Start) {
                 game.dialogue.queue(firstDeathSteps);
                 game.dialogue.onFinish(() => {
                     game.gameStage = GameStage.FailedOnce;
                 });
             }
-            if(game.gameStage === GameStage.FailedOnce && game.board.speed > 3) {
+            if(game.gameStage === GameStage.FailedOnce && game.board.speed > 1.5 || game.totalAttempts > 3) {
                 game.dialogue.queue(fastDeathSteps);
                 game.dialogue.onFinish(() => {
                     game.gameStage = GameStage.FiveD;
                 });
             }
-            return;
+            return false;
         }
 
         if(grow) {
@@ -101,8 +103,6 @@ export class Snake {
 
         this.updateBoard();
 
-        if(grow) {
-            game.placeFood();
-        }
+        return grow;
     }
 }
