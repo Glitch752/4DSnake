@@ -23,6 +23,25 @@
             top: 70px;
             left: 20px;
         }
+
+        .board-snapshot {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-style: preserve-3d;
+            transition: translate 0.3s ease;
+        }
+        .board-canvas {
+            transform: none;
+        }
+        .board-header {
+            position: absolute;
+            top: -30px;
+            left: 0;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            color: white;
+        }
     </style>
 </head>
 <body>

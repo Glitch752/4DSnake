@@ -22,3 +22,7 @@ export function lerpColor(hexA, hexB, t) {
     const bl = Math.round(lerp(a[2], b[2], t));
     return `rgb(${r}, ${g}, ${bl})`;
 }
+
+export function ease(t) {
+    return t * t * (3 - 2 * t);
+}

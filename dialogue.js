@@ -1,3 +1,4 @@
+import { ease } from "./math.js";
 import { Palette } from "./rendering.js";
 
 export const tutorialSteps = [
@@ -120,6 +121,24 @@ export const fastDeathSteps = [
         text: "Anyways, I have to go. Good luck!"
     }
 ];
+export const winSteps = [
+    {
+        from: "game",
+        text: "You know what... I'm impressed. You've clearly got it from here."
+    },
+    {
+        from: "game",
+        text: "Consider this a win. I'll let you keep going since you're clearly enjoying your time as a snake."
+    },
+    {
+        from: "player",
+        text: "Wait-!"
+    },
+    {
+        from: "game",
+        text: "See you around, snake!"
+    }
+]
 
 export class Dialogue {
     /** @type {typeof tutorialSteps} */
@@ -173,18 +192,54 @@ export class Dialogue {
         
         ctx.closePath();
     }
-
+    
+    animation = {
+        startTime: null,
+        lastStepRef: null,
+        revealIndex: 0,
+        lastRevealTime: 0
+    };
+    
     draw(ctx, tesseract) {
         if(!this.active) return;
+
+        const revealSpeed = 15; // ms per character
+
+        // Initialize timing on first draw
+        if(!this.animation.startTime) this.animation.startTime = performance.now();
+
+        const step = this.stepQueue[0];
+        if(!step) return;
+
+        // when step changes, reset animation
+        if(this.animation.lastStepRef !== step) {
+            this.animation.lastStepRef = step;
+            this.animation.revealIndex = 0;
+            this.animation.lastRevealTime = performance.now();
+            this.animation.startTime = performance.now();
+        }
+
+        // Advance reveal based on time
+        const now = performance.now();
+        const elapsed = now - this.animation.lastRevealTime;
+        if(this.animation.revealIndex < step.text.length) {
+            const advance = Math.floor(elapsed / revealSpeed);
+            if(advance > 0) {
+                this.animation.revealIndex = Math.min(step.text.length, this.animation.revealIndex + advance);
+                this.animation.lastRevealTime += advance * revealSpeed;
+            }
+        }
+        if(this.animation.revealIndex >= step.text.length) {
+            this.animation.lastRevealTime = now;
+        }
+
+        const isTesseract = step.from === 'game';
 
         // If dialogue is active, fade background
         ctx.save();
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        
-        const step = this.stepQueue[0];
-        const isTesseract = step.from === 'game';
-        
+
         const boxWidth = 500;
         const boxHeight = 90;
         let boxX, boxY, pointerX, pointerY;
@@ -201,7 +256,11 @@ export class Dialogue {
             pointerX = boxX - 16;
             pointerY = boxY + boxHeight / 2;
         }
-        
+
+        const animElapsed = now - this.animation.startTime;
+        ctx.globalAlpha = animElapsed < 250 ? animElapsed / 250 : 1; // fade in
+        ctx.translate(0, animElapsed < 250 ? ease(1 - animElapsed / 250) * -10 : 0);
+
         ctx.strokeStyle = isTesseract ? Palette.Tesseract : Palette.Player;
         ctx.lineWidth = 4;
         ctx.lineJoin = "round";
@@ -213,17 +272,25 @@ export class Dialogue {
         this.drawBoxShape(ctx, boxX, boxY, pointerX, pointerY, boxWidth, boxHeight);
         ctx.fill();
 
-        ctx.globalAlpha = 1;
         ctx.fillStyle = '#fff';
         ctx.font = '16px sans-serif';
         ctx.textBaseline = 'top';
 
+        const fullText = step.text;
+        const visibleText = fullText.slice(0, this.animation.revealIndex);
+
+        // blinking caret if not fully revealed
+        let displayText = visibleText;
+        if(this.animation.revealIndex < fullText.length) {
+            const blinkOn = Math.floor(now / 500) % 2 === 0;
+            displayText = visibleText + (blinkOn ? '|' : '');
+        }
+
         // Text wrap
-        const text = step.text;
-        const words = text.split(' ');
+        const words = displayText.split(' ');
         let line = '', y = boxY + 16;
         for(let n = 0; n < words.length; n++) {
-            const testLine = line + words[n] + ' ';
+            const testLine = line + words[n] + (n === words.length - 1 ? '' : ' ');
             const measure = ctx.measureText(testLine);
             if(measure.width > boxWidth - 24 && n > 0) {
                 ctx.fillText(line, boxX + 12, y);

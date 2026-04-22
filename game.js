@@ -29,11 +29,17 @@ export class BoardSnapshot {
     speed = 1;
     snake;
 
+    /** @type {HTMLDivElement} */
+    container;
     /** @type {HTMLCanvasElement} */
     canvas;
+    /** @type {HTMLSpanElement} */
+    header;
     /** @type {CanvasRenderingContext2D} */
     ctx;
     poolIndex = 0;
+
+    creationTimestamp = 0;
 
     constructor() {
         // fixed-size canvas pool instead of creating new canvases
@@ -45,9 +51,13 @@ export class BoardSnapshot {
         this.poolIndex = poolIndex;
 
         const item = BoardSnapshot.canvasPool[poolIndex];
-        this.canvas = item[0];
+        this.container = item[0];
+        this.canvas = this.container.querySelector('canvas');
+        this.header = this.container.querySelector('span');
         this.ctx = item[1];
-        this.canvas.style.display = "block"; // In case it was hidden by remove()
+        this.container.style.display = "block"; // In case it was hidden by remove()
+
+        this.creationTimestamp = game.timestamp;
     }
 
     initBoard() {
@@ -79,6 +89,8 @@ export class BoardSnapshot {
     advance() {
         const ss = this.clone();
         const grew = ss.snake.move(ss);
+        ss.snake.updateBoard(ss.board);
+
         if(grew) {
             ss.placeFood();
             ss.speed *= 1.02;
@@ -87,14 +99,13 @@ export class BoardSnapshot {
             ss.gameOver = true;
         }
         ss.score += ss.snake.body.length - game.board.snake.body.length;
-        ss.snake.updateBoard(ss.board);
         return ss;
     }
 
     remove() {
         // Will be reused anyway
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.canvas.style.display = "none";
+        this.container.style.display = "none";
         this.canvas = null;
         this.ctx = null;
 
@@ -122,25 +133,31 @@ export class BoardSnapshot {
     }
 }
 
-const HISTORY_LENGTH = 5;
+const HISTORY_LENGTH = 25;
 
-/** @type {[HTMLCanvasElement, CanvasRenderingContext2D][]} */
+/** @type {[HTMLDivElement, CanvasRenderingContext2D][]} */
 BoardSnapshot.canvasPool = new Array(HISTORY_LENGTH + 10).fill(null).map(() => {
+    const container = document.createElement('div');
+    container.classList.add('board-snapshot');
+    
     const canvas = document.createElement('canvas');
+    canvas.classList.add('board-canvas');
     const ctx = canvas.getContext('2d');
-    canvas.style.position = 'absolute';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.zIndex = '10';
-    canvas.style.display = 'none';
-    document.getElementById("boards").appendChild(canvas);
-    return [canvas, ctx];
+    const header = document.createElement('span');
+    header.classList.add('board-header');
+
+    container.appendChild(canvas);
+    container.appendChild(header);
+
+    document.getElementById("boards").appendChild(container);
+    return [container, ctx];
 });
 BoardSnapshot.openPoolIndices = new Set(Array.from(Array(BoardSnapshot.canvasPool.length).keys()));
 
 export class Game {
     /** @type {GameStage[keyof GameStage]} */
     gameStage = GameStage.Start;
+    totalAttempts = 0;
 
     tesseract = new Tesseract();
     dialogue = new Dialogue();
@@ -152,14 +169,19 @@ export class Game {
     */
     board;
 
-    totalAttempts = 0;
-
     /** @type {BoardSnapshot[]} */
     previousBoards = [];
 
     historyScrollPosition = 0;
 
+    timeoutId = null;
+
+    /** A monotonically increasing timestamp that updates only while the game is updating */
+    timestamp = 0;
+
     advance() {
+        if(this.board.gameOver) return;
+
         const newBoard = this.board.advance();
         this.previousBoards.push(this.board);
         if(this.previousBoards.length > HISTORY_LENGTH) {
@@ -171,7 +193,12 @@ export class Game {
     }
 
     run() {
-        setTimeout(() => {
+        if(this.historyScrollPosition > 0) {
+            this.timeoutId = null;
+            return;
+        }
+        this.timeoutId = setTimeout(() => {
+            this.timestamp += 500 / this.board.speed;
             this.advance();
             this.run();
         }, 500 / this.board.speed);
@@ -193,11 +220,22 @@ export class Game {
     }
 
     scrollHistory(delta) {
-        // if(this.dialogue.active) return;
-        // if(this.gameStage !== GameStage.FiveD) return;
+        if(this.dialogue.active) return;
+        if(this.gameStage !== GameStage.FiveD) return;
         
         this.historyScrollPosition += delta * 0.002;
         this.historyScrollPosition = Math.max(0, this.historyScrollPosition);
+
+        if(this.historyScrollPosition > 0) {
+            if(this.timeoutId) {
+                clearTimeout(this.timeoutId);
+                this.timeoutId = null;
+            }
+        } else {
+            if(!this.timeoutId) {
+                this.run();
+            }
+        }
     }
 }
 
@@ -225,6 +263,27 @@ document.addEventListener('keydown', (e) => {
         case 'j': game.board.snake.setDirection(new Vector4(0, 0, 0, -1)); break; // W-
         case 'l': game.board.snake.setDirection(new Vector4(0, 0, 0, 1)); break; // W+
         case ' ': {
+            if(game.historyScrollPosition > 0) {
+                const targetIndex = game.previousBoards.length - Math.round(game.historyScrollPosition) + 1;
+                if(targetIndex >= 0 && targetIndex < game.previousBoards.length) {
+                    const targetBoard = game.previousBoards[targetIndex];
+
+                    // targetIndex becomes 0, so
+                    game.historyScrollPosition -= game.previousBoards.length - targetIndex;
+
+                    // Reset speed when traveling
+                    // This is the key advantage, but it's kind of hidden?
+                    // Not very good game design but oh well
+                    targetBoard.speed = 1;
+                    
+                    game.board.remove();
+                    game.board = targetBoard.clone();
+                    for(let i = game.previousBoards.length - 1; i >= targetIndex; i--) {
+                        game.previousBoards[i].remove();
+                    }
+                    game.previousBoards = game.previousBoards.slice(0, targetIndex);
+                }
+            }
             if(game.board.gameOver) {
                 game.restart();
             }

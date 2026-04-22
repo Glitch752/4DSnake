@@ -1,8 +1,28 @@
-import { fastDeathSteps, firstDeathSteps } from "./dialogue.js";
+import { fastDeathSteps, firstDeathSteps, winSteps } from "./dialogue.js";
 import { BoardSnapshot, BoardState, game, GameStage } from "./game.js";
 import { BOARD_SIZE } from "./layout.js";
 import { emitCrashParticles, emitEatParticles } from "./rendering.js";
 import { Vector4 } from "./vector4.js";
+
+function debugBoard(board) {
+    console.clear();
+    // BOARD_SIZE x BOARD_SIZE grid of BOARD_SIZE x BOARD_SIZE grids
+    let output = new Array(BOARD_SIZE * BOARD_SIZE).fill(0).map(() => new Array(BOARD_SIZE * BOARD_SIZE).fill('_'));
+    for(let w = 0; w < BOARD_SIZE; w++) {
+        for(let z = 0; z < BOARD_SIZE; z++) {
+            for(let y = 0; y < BOARD_SIZE; y++) {
+                for(let x = 0; x < BOARD_SIZE; x++) {
+                    const cell = board[w][z][y][x];
+                    let char = '_';
+                    if(cell === BoardState.Snake) char = 'S';
+                    else if(cell === BoardState.Food) char = 'F';
+                    output[z * BOARD_SIZE + y][w * BOARD_SIZE + x] = char;
+                }
+            }
+        }
+    }
+    console.log(output.map(row => row.join('')).join('\n'));
+}
 
 export class Snake {
     constructor() {
@@ -78,7 +98,6 @@ export class Snake {
             this.alive = false;
             emitCrashParticles(newHead);
 
-            console.log("Snake died - game stage: ", game.gameStage, "speed: ", snapshot.speed);
             if(game.gameStage === GameStage.Start) {
                 game.dialogue.queue(firstDeathSteps);
                 game.dialogue.onFinish(() => {
@@ -96,12 +115,14 @@ export class Snake {
 
         if(grow) {
             emitEatParticles(newHead);
+
+            if(game.gameStage === GameStage.FiveD && this.body.length === 50) {
+                game.dialogue.queue(winSteps);
+            }
         }
 
         this.body.unshift(newHead); // Add new head
         if(!grow) this.body.pop(); // Remove tail
-
-        this.updateBoard();
 
         return grow;
     }

@@ -1,4 +1,4 @@
-import { clamp, lerp, lerpColor } from "./math.js";
+import { clamp, ease, lerp, lerpColor } from "./math.js";
 import { BOARD_SIZE, calculateLayout, getPlaneRect, getCellRect, getCellCenter } from "./layout.js";
 import { BoardSnapshot, BoardState, game, GameStage } from "./game.js";
 import { Vector4 } from "./vector4.js";
@@ -208,17 +208,53 @@ function drawSnake(ctx, layout, board) {
     ctx.fill();
 }
 
+/** @type {{progress: number, lastStage: GameStage[keyof GameStage], startTime?: number} | null} */
+let titleAnim = null;
+
 let lastRenderTime = performance.now();
 export function render(now) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // we also animate the title changing for fun
     ctx.textBaseline = 'top';
     ctx.font = 'bold 40px monospace';
     ctx.fillStyle = '#fff';
-    if(game.gameStage != GameStage.FiveD) {
-        ctx.fillText(`4D Snake`, 25, 15);
-    } else {
-        ctx.fillText(`5D Snake With Time Travel`, 25, 15);
+
+    if(!titleAnim) titleAnim = { progress: 0, lastStage: game.gameStage };
+    const anim = titleAnim;
+
+    // when stage changes, start the animation
+    if(anim.lastStage !== game.gameStage) {
+        anim.startTime = performance.now();
+        anim.progress = 0;
+        anim.lastStage = game.gameStage;
+    }
+
+    // 0 to 1 over 0.7s
+    if(anim.startTime) anim.progress = Math.min(1, (now - anim.startTime) / 700);
+
+    let titleFrom = "4D Snake";
+    let titleTo = "5D Snake With Time Travel";
+    let showTitle = titleFrom;
+
+    if(game.gameStage !== GameStage.FiveD && anim.progress < 1) {
+        showTitle = titleFrom;
+    } else if(game.gameStage === GameStage.FiveD && anim.progress < 1) {
+        // Crossfade: fade out old, fade in new
+        ctx.globalAlpha = 1 - anim.progress;
+        ctx.fillText(titleFrom, 25, 15);
+        ctx.globalAlpha = anim.progress;
+        ctx.fillText(titleTo, 25, 15);
+        ctx.globalAlpha = 1;
+        // Don't draw below
+        showTitle = null;
+    } else if(game.gameStage === GameStage.FiveD) {
+        showTitle = titleTo;
+    }
+
+    if(showTitle) {
+        ctx.globalAlpha = 1;
+        ctx.fillText(showTitle, 25, 15);
     }
 
     const deltaTime = clamp((now - lastRenderTime) / 1000, 0, 0.04);
@@ -238,19 +274,33 @@ export function render(now) {
         }
 
         // Update perspective
-        const perspective = Math.min(1, game.historyScrollPosition);
+        const perspective = ease(Math.min(1, game.historyScrollPosition));
 
         const indexFromCurrent = game.previousBoards.length - i;
 
-        snapshot.canvas.style.transform = `\
+        snapshot.container.style.transform = `\
 perspective(${5000 - Math.sqrt(perspective) * 4000}px) \
 scale(${lerp(1.0, 0.6, perspective)}) \
 rotateX(${perspective * -40}deg) \
 rotateY(${perspective * 20}deg) \
 translateZ(${indexFromCurrent * -500 + Math.max(0, game.historyScrollPosition - 1) * 500}px)`;
 
-        snapshot.canvas.style.opacity = (1 - (indexFromCurrent - game.historyScrollPosition) / game.previousBoards.length / Math.max(perspective, 0.0001)).toFixed(3);
-        snapshot.canvas.style.zIndex = (100 - indexFromCurrent).toString();
+        snapshot.container.style.opacity = (1 - (indexFromCurrent - game.historyScrollPosition) / game.previousBoards.length / Math.max(perspective, 0.0001)).toFixed(3);
+        snapshot.container.style.zIndex = (100 - indexFromCurrent).toString();
+
+        // If this is the closest one, set an attribute and `translate` to highlight
+        const highlightPos = indexFromCurrent - game.historyScrollPosition + 1;
+        const highlight = Math.abs(highlightPos) < 0.5;
+        snapshot.container.style.translate = highlight ? '50px 0' : '0px';
+        snapshot.container.dataset.highlight = highlight ? 'true' : 'false';
+
+        snapshot.header.textContent = `${
+            ((snapshot.creationTimestamp - game.timestamp) / 1000).toFixed(2)
+        }s - Press space to time travel`;
+        snapshot.header.style.opacity = clamp(
+            1 - Math.abs(highlightPos) * 1.5,
+            0, 1
+        ).toString();
 
         if(i === game.previousBoards.length || resized) {
             snapshot.ctx.clearRect(0, 0, snapshot.canvas.width, snapshot.canvas.height);
