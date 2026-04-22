@@ -13,17 +13,21 @@ export const BoardState = {
     Food: 2
 };
 
-export class Game {
+// an ""enum"" again
+export const GameStage = {
+    Start: 'start',
+    FailedOnce: 'failedOnce',
+    FiveD: '5d'
+};
+
+export class BoardSnapshot {
     /** @type {BoardState[keyof BoardState][][][][]} */
     board = [];
     score = 0;
     gameOver = false;
-
-    snake = new Snake();
-
-    tesseract = new Tesseract();
-    dialogue = new Dialogue();
-    particles = new Particles();
+    /** Multiplier of base speed */
+    speed = 1;
+    snake;
 
     initBoard() {
         for(let w = 0; w < BOARD_SIZE; w++) {
@@ -39,6 +43,40 @@ export class Game {
             }
         }
     }
+
+    clone() {
+        const ss = new BoardSnapshot();
+        ss.board = structuredClone(this.board);
+        ss.score = this.score;
+        ss.gameOver = this.gameOver;
+        ss.speed = this.speed;
+        ss.snake = this.snake.clone();
+        return ss;
+    }
+
+    /** Advance this board and get the new board. */
+    advance() {
+        const ss = this.clone();
+        ss.snake.move();
+        if(!ss.snake.alive) {
+            ss.gameOver = true;
+        }
+        ss.score += ss.snake.body.length - game.board.snake.body.length;
+        ss.snake.updateBoard(ss.board);
+        return ss;
+    }
+}
+
+export class Game {
+    /** @type {GameStage[keyof GameStage]} */
+    gameStage = GameStage.Start;
+
+    tesseract = new Tesseract();
+    dialogue = new Dialogue();
+    particles = new Particles();
+
+    /** The current (latest) board state */
+    board = new BoardSnapshot();
 
     placeFood() {
         let emptyCells = [];
@@ -63,12 +101,13 @@ export class Game {
 
 export const game = new Game();
 
-game.initBoard();
-game.snake.updateBoard();
+game.board.initBoard();
+game.board.snake = new Snake();
+game.board.snake.updateBoard();
 game.placeFood();
 
 setInterval(() => {
-    game.snake.move();
+    game.board.advance();
 }, 500);
 
 
@@ -82,14 +121,14 @@ document.addEventListener('keydown', (e) => {
     // We have more directions to move in than normal snake, but thankfully
     // both WASD and IJKL are pretty standard and make it intuitive enough
     switch(e.key) {
-        case 'w': game.snake.setDirection(new Vector4(0, -1, 0, 0)); break; // Up
-        case 's': game.snake.setDirection(new Vector4(0, 1, 0, 0)); break; // Down
-        case 'a': game.snake.setDirection(new Vector4(-1, 0, 0, 0)); break; // Left
-        case 'd': game.snake.setDirection(new Vector4(1, 0, 0, 0)); break; // Right
-        case 'i': game.snake.setDirection(new Vector4(0, 0, -1, 0)); break; // Forward (Z-)
-        case 'k': game.snake.setDirection(new Vector4(0, 0, 1, 0)); break; // Backward (Z+)
-        case 'j': game.snake.setDirection(new Vector4(0, 0, 0, -1)); break; // W-
-        case 'l': game.snake.setDirection(new Vector4(0, 0, 0, 1)); break; // W+
+        case 'w': game.board.snake.setDirection(new Vector4(0, -1, 0, 0)); break; // Up
+        case 's': game.board.snake.setDirection(new Vector4(0, 1, 0, 0)); break; // Down
+        case 'a': game.board.snake.setDirection(new Vector4(-1, 0, 0, 0)); break; // Left
+        case 'd': game.board.snake.setDirection(new Vector4(1, 0, 0, 0)); break; // Right
+        case 'i': game.board.snake.setDirection(new Vector4(0, 0, -1, 0)); break; // Forward (Z-)
+        case 'k': game.board.snake.setDirection(new Vector4(0, 0, 1, 0)); break; // Backward (Z+)
+        case 'j': game.board.snake.setDirection(new Vector4(0, 0, 0, -1)); break; // W-
+        case 'l': game.board.snake.setDirection(new Vector4(0, 0, 0, 1)); break; // W+
     }
 });
 

@@ -1,6 +1,6 @@
 import { clamp, lerpColor } from "./math.js";
 import { BOARD_SIZE, calculateLayout, getPlaneRect, getCellRect, getCellCenter } from "./layout.js";
-import { BoardState, game } from "./game.js";
+import { BoardSnapshot, BoardState, game, GameStage } from "./game.js";
 import { Vector4 } from "./vector4.js";
 import { Snake } from "./snake.js";
 export const canvas = /** @type {HTMLCanvasElement} */(
@@ -44,7 +44,11 @@ function drawRect(ctx, x, y, width, height) {
     ctx.fillRect(x, y, width, height);
 }
 
-function drawBoard(layout) {
+/**
+ * @param {*} layout 
+ * @param {BoardSnapshot} board 
+ */
+function drawBoard(layout, board) {
     for(let w = 0; w < BOARD_SIZE; w++) {
         for(let z = 0; z < BOARD_SIZE; z++) {
             for(let y = 0; y < BOARD_SIZE; y++) {
@@ -62,13 +66,13 @@ function drawBoard(layout) {
                     ctx.fill();
 
                     // highlight next cells lightly
-                    if(pos.adjacentTo(game.snake.body[0]) && game.board[w][z][y][x] !== BoardState.Snake) {
-                        ctx.fillStyle = '#ffffff02';
+                    if(pos.adjacentTo(board.snake.body[0]) && board.board[w][z][y][x] !== BoardState.Snake) {
+                        ctx.fillStyle = '#ffffff04';
                         drawRect(ctx, rect.x, rect.y, rect.width, rect.height);
                         ctx.fill();
                     }
 
-                    if(game.board[w][z][y][x] === BoardState.Food) {
+                    if(board.board[w][z][y][x] === BoardState.Food) {
                         ctx.fillStyle = Palette.Food;
                         const size = rect.width * 0.6;
                         drawRect(
@@ -82,6 +86,14 @@ function drawBoard(layout) {
             }
         }
     }
+}
+
+/**
+ * @param {*} layout
+ * @param {BoardSnapshot} board
+ */
+function drawBoardOverlays(layout, board) {
+    // TODO: death
 }
 
 function drawRoundedRect(ctx, x, y, width, height, { tl = 0, tr = 0, bl = 0, br = 0 } = {}) {
@@ -107,10 +119,12 @@ function drawRoundedRect(ctx, x, y, width, height, { tl = 0, tr = 0, bl = 0, br 
 }
 
 /**
- * @param {Snake} snake 
  * @param {*} layout 
+ * @param {BoardSnapshot} board
  */
-function drawSnake(snake, layout) {
+function drawSnake(layout, board) {
+    const snake = board.snake;
+
     const segmentCount = snake.body.length;
     for (let i = segmentCount - 1; i >= 0; i--) {
         const segment = snake.body[i];
@@ -123,10 +137,10 @@ function drawSnake(snake, layout) {
         const prev = snake.body[i - 1], next = snake.body[i + 1];
 
         // connect sides with previous and next adjacency
-        const topAdj = prev && prev.y < segment.y || next && next.y < segment.y;
-        const leftAdj = prev && prev.x < segment.x || next && next.x < segment.x;
-        const rightAdj = prev && prev.x > segment.x || next && next.x > segment.x;
-        const bottomAdj = prev && prev.y > segment.y || next && next.y > segment.y;
+        const topAdj = prev && prev.y < segment.y && prev.adjacentTo(segment) || next && next.y < segment.y && next.adjacentTo(segment);
+        const leftAdj = prev && prev.x < segment.x && prev.adjacentTo(segment) || next && next.x < segment.x && next.adjacentTo(segment);
+        const rightAdj = prev && prev.x > segment.x && prev.adjacentTo(segment) || next && next.x > segment.x && next.adjacentTo(segment);
+        const bottomAdj = prev && prev.y > segment.y && prev.adjacentTo(segment) || next && next.y > segment.y && next.adjacentTo(segment);
 
         ctx.fillStyle = color;
         const radius = rect.width * 0.05;
@@ -178,13 +192,24 @@ let lastRenderTime = performance.now();
 export function render(now) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    ctx.textBaseline = 'top';
+    ctx.font = '40px monospace';
+    ctx.fillStyle = '#fff';
+    if(game.gameStage != GameStage.FiveD) {
+        ctx.fillText(`4D Snake`, 25, 15);
+    } else {
+        ctx.fillText(`5D Snake With Time Travel`, 25, 15);
+    }
+
     const deltaTime = clamp((now - lastRenderTime) / 1000, 0, 0.04);
     lastRenderTime = now;
     game.particles.update(deltaTime);
 
     latestLayout = calculateLayout();
-    drawBoard(latestLayout);
-    drawSnake(game.snake, latestLayout);
+    const snapshot = game.board;
+    drawBoard(latestLayout, snapshot);
+    drawSnake(latestLayout,snapshot);
+    drawBoardOverlays(latestLayout, snapshot);
     game.particles.draw(ctx);
 
     game.dialogue.draw(ctx, game.tesseract);

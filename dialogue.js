@@ -63,20 +63,90 @@ export const tutorialSteps = [
     }
 ];
 
+export const firstDeathSteps = [
+    {
+        from: "game",
+        text: "Harder than it looks, huh?"
+    },
+    {
+        from: "game",
+        text: "Well, I'm sure you've got it in you."
+    }
+];
+
+export const fastDeathSteps = [
+    {
+        from: "game",
+        text: "You're starting to see it now, huh?"
+    },
+    {
+        from: "game",
+        text: "You can never beat this."
+    },
+    {
+        from: "player",
+        text: "Wait, what? Why not?"
+    },
+    {
+        from: "game",
+        text: "It's too fast. You're no supercomputer. Face it - you're no match for 4D."
+    },
+    {
+        from: "player",
+        text: "What am I supposed to do, then?!"
+    },
+    {
+        from: "game",
+        text: "Let's see... if only there was some way to... look through time?"
+    },
+    {
+        from: "player",
+        text: "What do you mean, look through time?"
+    },
+    {
+        from: "game",
+        text: "Well, in your measly 3D existence, the fourth dimension is often considered time, isn't it?"
+    },
+    {
+        from: "player",
+        text: "Yeah, but... I don't see how that helps me."
+    },
+    {
+        from: "game",
+        text: "What if I told you... that there's a way? That you could use your scrollbar?"
+    },
+    {
+        from: "game",
+        text: "Anyways, I have to go. Good luck!"
+    }
+];
+
 export class Dialogue {
     /** @type {typeof tutorialSteps} */
     stepQueue = tutorialSteps;
+
+    onFinishCallbacks = [];
 
     constructor() {
         this.active = true;
     }
 
     next() {
-        if(this.stepQueue.length > 1) {
-            this.stepQueue.shift();
-        } else {
+        this.stepQueue.shift();
+        if(this.stepQueue.length <= 0) {
             this.active = false;
+            this.onFinishCallbacks.forEach(callback => callback());
+            this.onFinishCallbacks = [];
         }
+    }
+
+    queue(steps = []) {
+        this.stepQueue.push(...steps);
+        this.active = true;
+    }
+
+    onFinish(callback) {
+        this.onFinishCallbacks.push(callback);
     }
 
     drawBoxShape(ctx, boxX, boxY, pointerX, pointerY, boxWidth, boxHeight) {

@@ -1,4 +1,5 @@
-import { BoardState, game } from "./game.js";
+import { fastDeathSteps, firstDeathSteps } from "./dialogue.js";
+import { BoardState, game, GameStage } from "./game.js";
 import { BOARD_SIZE } from "./layout.js";
 import { emitCrashParticles, emitEatParticles } from "./rendering.js";
 import { Vector4 } from "./vector4.js";
@@ -25,14 +26,14 @@ export class Snake {
         }
     }
 
-    updateBoard() {
+    updateBoard(board = game.board.board) {
         // Clear previous snake position
         for(let w = 0; w < BOARD_SIZE; w++) {
             for(let z = 0; z < BOARD_SIZE; z++) {
                 for(let y = 0; y < BOARD_SIZE; y++) {
                     for(let x = 0; x < BOARD_SIZE; x++) {
-                        if(game.board[w][z][y][x] === BoardState.Snake) {
-                            game.board[w][z][y][x] = BoardState.Empty;
+                        if(board[w][z][y][x] === BoardState.Snake) {
+                            board[w][z][y][x] = BoardState.Empty;
                         }
                     }
                 }
@@ -41,12 +42,20 @@ export class Snake {
 
         // Set new snake position
         for(const segment of this.body) {
-            game.board[segment.w][segment.z][segment.y][segment.x] = BoardState.Snake;
+            board[segment.w][segment.z][segment.y][segment.x] = BoardState.Snake;
         }
     }
 
+    clone() {
+        const clone = new Snake();
+        clone.direction = this.direction.clone();
+        clone.nextDirection = this.nextDirection.clone();
+        clone.body = this.body.map(segment => segment.clone());
+        clone.alive = this.alive;
+    }
+
     move() {
-        if(!this.alive || game.gameOver || game.dialogue.active) return;
+        if(!this.alive || game.dialogue.active) return;
 
         this.direction = this.nextDirection;
         const newHead = this.body[0].plus(this.direction);
@@ -66,8 +75,20 @@ export class Snake {
             !(newHead.equals(this.body[this.body.length - 1]) && !grow)
         ) {
             this.alive = false;
-            game.gameOver = true;
             emitCrashParticles(newHead);
+
+            if(game.gameStage === GameStage.Start) {
+                game.dialogue.queue(firstDeathSteps);
+                game.dialogue.onFinish(() => {
+                    game.gameStage = GameStage.FailedOnce;
+                });
+            }
+            if(game.gameStage === GameStage.FailedOnce && game.board.speed > 3) {
+                game.dialogue.queue(fastDeathSteps);
+                game.dialogue.onFinish(() => {
+                    game.gameStage = GameStage.FiveD;
+                });
+            }
             return;
         }
 
@@ -81,7 +102,6 @@ export class Snake {
         this.updateBoard();
 
         if(grow) {
-            game.score += 1;
             game.placeFood();
         }
     }

@@ -34,4 +34,8 @@ export class Vector4 {
         const dw = Math.abs(this.w - other.w);
         return (dx + dy + dz + dw === 1);
     }
+
+    clone() {
+        return new Vector4(this.x, this.y, this.z, this.w);
+    }
 }
