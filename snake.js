@@ -2,6 +2,7 @@ import { fastDeathSteps, firstDeathSteps, winSteps } from "./dialogue.js";
 import { BoardSnapshot, BoardState, game, GameStage } from "./game.js";
 import { BOARD_SIZE } from "./layout.js";
 import { emitCrashParticles, emitEatParticles } from "./rendering.js";
+import { playSound } from "./sounds.js";
 import { Vector4 } from "./vector4.js";
 
 function debugBoard(board) {
@@ -78,6 +79,16 @@ export class Snake {
     move(snapshot) {
         if(!this.alive || game.dialogue.active) return false;
 
+        if(!this.direction.equals(this.nextDirection)) playSound('changeDirection', {
+            pitch: 0.5 * (
+                1 +
+                this.nextDirection.x * 0.1 +
+                this.nextDirection.y * 0.2 +
+                this.nextDirection.z * 0.15 +
+                this.nextDirection.w * 0.25
+            ),
+            volume: 0.4
+        });
         this.direction = this.nextDirection;
         const newHead = this.body[0].plus(this.direction);
         // Wrap
@@ -98,6 +109,8 @@ export class Snake {
             this.alive = false;
             emitCrashParticles(newHead);
 
+            playSound('death');
+
             if(game.gameStage === GameStage.Start) {
                 game.dialogue.queue(firstDeathSteps);
                 game.dialogue.onFinish(() => {
@@ -115,6 +128,8 @@ export class Snake {
 
         if(grow) {
             emitEatParticles(newHead);
+
+            playSound('eat');
 
             const winLength = 4 * 4 * 4 * 4 / 2; // Half the board
             if(game.gameStage === GameStage.FiveD && this.body.length === winLength) {

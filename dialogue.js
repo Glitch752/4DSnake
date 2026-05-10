@@ -1,5 +1,6 @@
 import { ease } from "./math.js";
 import { Palette } from "./rendering.js";
+import { playSound } from "./sounds.js";
 
 export const tutorialSteps = [
     {
@@ -156,6 +157,8 @@ export class Dialogue {
             this.active = false;
             this.onFinishCallbacks.forEach(callback => callback());
             this.onFinishCallbacks = [];
+        } else {
+            playSound('dialogueBox', { pitch: this.stepQueue[0].from === 'game' ? 0.8 : 1.2, volume: 0.5 });
         }
     }
 
@@ -225,6 +228,8 @@ export class Dialogue {
         if(this.animation.revealIndex < step.text.length) {
             const advance = Math.floor(elapsed / revealSpeed);
             if(advance > 0) {
+                for(let i = 0; i < advance; i++) if((this.animation.revealIndex + i) % 4 === 0)
+                    playSound('dialogueLetter', { pitch: 0.8 + Math.random() * 0.4, volume: 0.3 });
                 this.animation.revealIndex = Math.min(step.text.length, this.animation.revealIndex + advance);
                 this.animation.lastRevealTime += advance * revealSpeed;
             }

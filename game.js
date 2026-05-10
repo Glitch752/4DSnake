@@ -5,6 +5,7 @@ import { Particles } from "./particles.js";
 import { BOARD_SIZE } from "./layout.js";
 import { Snake } from "./snake.js";
 import { emitResetParticles, render } from "./rendering.js";
+import { playSound } from "./sounds.js";
 
 // an ""enum""
 export const BoardState = {
@@ -179,6 +180,7 @@ export class Game {
     timestamp = 0;
 
     advance() {
+        if(this.dialogue.active) return;
         if(this.board.gameOver) return;
 
         const newBoard = this.board.advance();
@@ -189,6 +191,8 @@ export class Game {
         }
 
         this.board = newBoard;
+
+        playSound('tick', { volume: 0.3, pitch: 0.9 + Math.random() * 0.2 });
     }
 
     run() {
@@ -220,15 +224,27 @@ export class Game {
         this.board.placeFood();
 
         this.totalAttempts += 1;
+
+        playSound('restart');
     }
+
+    scrollSoundDebounce = 0;
 
     scrollHistory(delta) {
         if(this.dialogue.active) return;
         if(this.gameStage !== GameStage.FiveD) return;
         
+        const oldHistoryPosition = this.historyScrollPosition;
         this.historyScrollPosition += delta * 0.002;
         this.historyScrollPosition = Math.max(0, this.historyScrollPosition);
+        this.historyScrollPosition = Math.min(this.previousBoards.length + 1, this.historyScrollPosition);
 
+        const now = performance.now();
+        if(now - this.scrollSoundDebounce > 0 && Math.floor(this.historyScrollPosition) !== Math.floor(oldHistoryPosition)) {
+            playSound('cycleHistory', { pitch: 0.6 + Math.random() * 0.4, volume: 0.4 });
+            this.scrollSoundDebounce = now + 100 + Math.random() * 50;
+        }
+        
         if(this.historyScrollPosition > 0) {
             if(this.timeoutId) {
                 clearTimeout(this.timeoutId);
@@ -289,6 +305,8 @@ document.addEventListener('keydown', (e) => {
                         game.previousBoards[i].remove();
                     }
                     game.previousBoards = game.previousBoards.slice(0, targetIndex);
+
+                    playSound('timeTravel', { pitch: 0.8 + Math.random() * 0.4, volume: 1.0 });
                 }
             }
             if(game.board.gameOver) {
