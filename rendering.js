@@ -39,6 +39,20 @@ export function emitCrashParticles(cell) {
     game.particles.emitCircleBurst(center.x, center.y, latestLayout.cellSize * 0.4, 70, 220, 0.8, Palette.Danger);
 }
 
+export function emitResetParticles(board) {
+    // Particles to make resetting a bit more fun
+    for(const part of board.snake.body) {
+        const pos = getCellCenter(latestLayout, part);
+        const inset = latestLayout.cellSize / 8;
+        game.particles.emitRectBurst(
+            pos.x - latestLayout.cellSize / 2 + inset, pos.y - latestLayout.cellSize / 2 + inset,
+            latestLayout.cellSize - inset * 2, latestLayout.cellSize - inset * 2,
+            20, 20, 1,
+            Palette.Player
+        );
+    }
+}
+
 function drawRect(ctx, x, y, width, height) {
     // For now, just normal rect?
     ctx.fillRect(x, y, width, height);

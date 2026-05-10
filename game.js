@@ -4,7 +4,7 @@ import { Tesseract } from "./tesseract.js";
 import { Particles } from "./particles.js";
 import { BOARD_SIZE } from "./layout.js";
 import { Snake } from "./snake.js";
-import { render } from "./rendering.js";
+import { emitResetParticles, render } from "./rendering.js";
 
 // an ""enum""
 export const BoardState = {
@@ -107,8 +107,6 @@ export class BoardSnapshot {
         // Will be reused anyway
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.container.style.display = "none";
-        this.canvas = null;
-        this.ctx = null;
 
         BoardSnapshot.openPoolIndices.add(this.poolIndex);
     }
@@ -206,11 +204,15 @@ export class Game {
     }
 
     restart() {
-        if(this.board) this.board.remove();
-        this.board = new BoardSnapshot();
-
+        if(this.board) {
+            emitResetParticles(this.board);
+            this.board.remove();
+        }
         this.previousBoards.forEach(b => b.remove());
         this.previousBoards = [];
+
+        this.board = new BoardSnapshot();
+        this.previousBoards.push(this.board);
 
         this.board.initBoard();
         this.board.snake = new Snake();
@@ -292,6 +294,7 @@ document.addEventListener('keydown', (e) => {
             if(game.board.gameOver) {
                 game.restart();
             }
+            break;
         }
     }
 });

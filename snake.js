@@ -104,7 +104,7 @@ export class Snake {
                     game.gameStage = GameStage.FailedOnce;
                 });
             }
-            if(game.gameStage === GameStage.FailedOnce && game.board.speed > 1.5 || game.totalAttempts > 3) {
+            if(game.gameStage === GameStage.FailedOnce && (game.board.speed > 1.5 || game.totalAttempts > 3)) {
                 game.dialogue.queue(fastDeathSteps);
                 game.dialogue.onFinish(() => {
                     game.gameStage = GameStage.FiveD;

@@ -90,7 +90,7 @@ export const fastDeathSteps = [
     },
     {
         from: "game",
-        text: "It's too fast. You're no supercomputer. Face it - you're no match for 4D."
+        text: "It's too fast. You're no supercomputer! You're simply no match for 4D. ...or exponential speed increases, for that matter."
     },
     {
         from: "player",
