@@ -27,6 +27,7 @@ export class BoardSnapshot {
     gameOver = false;
     /** Multiplier of base speed */
     speed = 1;
+    /** @type {Snake} */
     snake;
 
     /** @type {HTMLDivElement} */
@@ -244,8 +245,12 @@ export const game = new Game();
 game.restart();
 game.run();
 
+export const heldKeys = new Set();
+
 // Controls
 document.addEventListener('keydown', (e) => {
+    heldKeys.add(e.key);
+
     if(game.dialogue.active) {
         game.dialogue.next();
         return;
@@ -289,6 +294,9 @@ document.addEventListener('keydown', (e) => {
             }
         }
     }
+});
+document.addEventListener('keyup', (e) => {
+    heldKeys.delete(e.key);
 });
 
 document.addEventListener('wheel', (e) => {

@@ -1,6 +1,6 @@
 import { clamp, ease, lerp, lerpColor } from "./math.js";
 import { BOARD_SIZE, calculateLayout, getPlaneRect, getCellRect, getCellCenter } from "./layout.js";
-import { BoardSnapshot, BoardState, game, GameStage } from "./game.js";
+import { BoardSnapshot, BoardState, game, GameStage, heldKeys } from "./game.js";
 import { Vector4 } from "./vector4.js";
 
 export const canvas = /** @type {HTMLCanvasElement} */(
@@ -208,6 +208,73 @@ function drawSnake(ctx, layout, board) {
     ctx.fill();
 }
 
+function drawControls() {
+    // 4D controls are sort of difficult to represent, but this is the best I could come up with.
+    // We draw two D-pad overlays for "XY" and "ZW"
+    // we also highlight the currently held keys becuase it's fun :)
+    const boxPadding = 5;
+    const boxSize = (canvas.width - latestLayout.boardPixelSize - latestLayout.offsetX * 5) / 7;
+
+    const currentDirection = game.board.snake.nextDirection;
+
+    const dpadRect = (x, y, width, height) => {
+        drawRoundedRect(ctx, x, y, width, height, { tl: 4, tr: 4, bl: 4, br: 4 });
+        ctx.fill();
+        ctx.strokeStyle = Palette.CellBgEven;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+    };
+    const dpadLabel = (x, y, text) => {
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x, y);
+    };
+
+    const drawDPad = (centerX, centerY, label, buttons, directions) => {
+        ctx.strokeStyle = Palette.BoardBg;
+        drawRoundedRect(ctx, centerX - boxSize / 2, centerY - boxSize / 2, boxSize, boxSize, { tl: 4, tr: 4, bl: 4, br: 4 });
+        ctx.stroke();
+
+        dpadLabel(centerX, centerY, label);
+
+        const squares = [
+            { x: 0, y: -1 },
+            { x: 0, y: 1 },
+            { x: -1, y: 0 },
+            { x: 1, y: 0 }
+        ];
+
+        for(let i = 0; i < 4; i++) {
+            const dir = directions[i], button = buttons[i], square = squares[i];
+            
+            const isCurrent = currentDirection.x === dir.x && currentDirection.y === dir.y && currentDirection.z === dir.z && currentDirection.w === dir.w;
+
+            ctx.fillStyle = heldKeys.has(button) ? Palette.CellBgEven : (isCurrent ? Palette.CellBgOdd : Palette.BoardBg);
+            const boxCenterX = centerX + square.x * (boxSize + boxPadding);
+            const boxCenterY = centerY + square.y * (boxSize + boxPadding);
+            dpadRect(boxCenterX - boxSize / 2, boxCenterY - boxSize / 2, boxSize, boxSize);
+            dpadLabel(boxCenterX, boxCenterY, button.toUpperCase());
+        }
+    };
+
+    const startX = latestLayout.offsetX * 3 + latestLayout.boardPixelSize;
+    drawDPad(
+        startX + boxSize * 3 / 2, latestLayout.offsetY + boxSize * 3 / 2,
+        "XY",
+        ["w", "s", "a", "d"],
+        [Vector4.NegY, Vector4.PosY, Vector4.NegX, Vector4.PosX]
+    );
+    
+    drawDPad(
+        startX + boxSize * 11 / 2, latestLayout.offsetY + boxSize * 3 / 2,
+        "ZW",
+        ["i", "k", "j", "l"],
+        [Vector4.NegZ, Vector4.PosZ, Vector4.NegW, Vector4.PosW]
+    );
+}
+
 /** @type {{progress: number, lastStage: GameStage[keyof GameStage], startTime?: number} | null} */
 let titleAnim = null;
 
@@ -237,6 +304,7 @@ export function render(now) {
     let titleTo = "5D Snake With Time Travel";
     let showTitle = titleFrom;
 
+    ctx.textAlign = 'left';
     if(game.gameStage !== GameStage.FiveD && anim.progress < 1) {
         showTitle = titleFrom;
     } else if(game.gameStage === GameStage.FiveD && anim.progress < 1) {
@@ -312,6 +380,9 @@ translateZ(${indexFromCurrent * -500 + Math.max(0, game.historyScrollPosition - 
             game.particles.draw(snapshot.ctx); 
         }
     }
+
+    // Controls
+    drawControls();
        
     game.dialogue.draw(ctx, game.tesseract);
     game.tesseract.draw();

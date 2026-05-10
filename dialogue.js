@@ -275,6 +275,7 @@ export class Dialogue {
         ctx.fillStyle = '#fff';
         ctx.font = '16px sans-serif';
         ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
 
         const fullText = step.text;
         const visibleText = fullText.slice(0, this.animation.revealIndex);

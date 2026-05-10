@@ -1,4 +1,13 @@
 export class Vector4 {
+    static PosX = new Vector4(1, 0, 0, 0);
+    static NegX = new Vector4(-1, 0, 0, 0);
+    static PosY = new Vector4(0, 1, 0, 0);
+    static NegY = new Vector4(0, -1, 0, 0);
+    static PosZ = new Vector4(0, 0, 1, 0);
+    static NegZ = new Vector4(0, 0, -1, 0);
+    static PosW = new Vector4(0, 0, 0, 1);
+    static NegW = new Vector4(0, 0, 0, -1);
+
     constructor(x, y, z, w) {
         this.x = x;
         this.y = y;

@@ -116,7 +116,8 @@ export class Snake {
         if(grow) {
             emitEatParticles(newHead);
 
-            if(game.gameStage === GameStage.FiveD && this.body.length === 50) {
+            const winLength = 4 * 4 * 4 * 4 / 2; // Half the board
+            if(game.gameStage === GameStage.FiveD && this.body.length === winLength) {
                 game.dialogue.queue(winSteps);
             }
         }
