@@ -7,7 +7,8 @@ const SOUND_ASSETS = {
     dialogueBox: "sounds/dialogue_box.wav",
     dialogueLetter: "sounds/dialogue_letter.wav",
     timeTravel: "sounds/time_travel.wav",
-    tick: "sounds/tick.wav"
+    tick: "sounds/tick.wav",
+    fiveD: "sounds/five_d.wav"
 };
 
 /** @type {AudioContext} */

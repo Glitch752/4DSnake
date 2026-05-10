@@ -121,6 +121,9 @@ export class Snake {
                 game.dialogue.queue(fastDeathSteps);
                 game.dialogue.onFinish(() => {
                     game.gameStage = GameStage.FiveD;
+                    setTimeout(() => {
+                        playSound('fiveD', { pitch: 1, volume: 0.7 });
+                    }, 300);
                 });
             }
             return false;
@@ -129,9 +132,9 @@ export class Snake {
         if(grow) {
             emitEatParticles(newHead);
 
-            playSound('eat');
+            playSound('eat', { pitch: 0.9 + Math.random() * 0.2, volume: 0.5 });
 
-            const winLength = 4 * 4 * 4 * 4 / 2; // Half the board
+            const winLength = 4 * 4 * 4 * 4 / 4; // A quarter of the board
             if(game.gameStage === GameStage.FiveD && this.body.length === winLength) {
                 game.dialogue.queue(winSteps);
             }
